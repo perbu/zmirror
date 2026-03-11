@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zmirror-credentials
+  namespace: default
+type: Opaque
+stringData:
+  SOURCES__ZENDESK__CREDENTIALS__SUBDOMAIN: "YOUR_SUBDOMAIN"
+  SOURCES__ZENDESK__CREDENTIALS__EMAIL: "YOUR_EMAIL"
+  SOURCES__ZENDESK__CREDENTIALS__PASSWORD: "YOUR_API_TOKEN"
+  DESTINATION__POSTGRES__CREDENTIALS: "postgresql://user:pass@host:5432/db"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zmirror
+  namespace: default
+spec:
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: zmirror
+              image: zmirror:latest
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "500m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "500m"
+              envFrom:
+                - secretRef:
+                    name: zmirror-credentials
