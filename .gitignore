@@ -1,2 +1,5 @@
 .env
 .claude
+.dlt/secrets.toml
+.venv/
+__pycache__/

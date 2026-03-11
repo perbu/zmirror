@@ -21,7 +21,7 @@ All config via environment variables (see `k8s.yaml` Secret):
 |---|---|
 | `SOURCES__ZENDESK__CREDENTIALS__SUBDOMAIN` | Zendesk subdomain |
 | `SOURCES__ZENDESK__CREDENTIALS__EMAIL` | Zendesk agent email |
-| `SOURCES__ZENDESK__CREDENTIALS__PASSWORD` | Zendesk API token |
+| `SOURCES__ZENDESK__CREDENTIALS__TOKEN` | Zendesk API token |
 | `DESTINATION__POSTGRES__CREDENTIALS` | Postgres connection string |
 
 ## License
