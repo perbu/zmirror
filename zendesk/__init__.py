@@ -11,10 +11,15 @@ from dlt.common.time import ensure_pendulum_datetime
 from dlt.common.typing import TDataItem, TDataItems, TAnyDateTime
 from dlt.sources import DltResource
 
+import logging
+from requests.exceptions import HTTPError
+
 from .helpers.api_helpers import process_ticket, process_ticket_field
 from .helpers.talk_api import PaginationType, ZendeskAPIClient
 from .helpers.credentials import TZendeskCredentials, ZendeskCredentialsOAuth
 from .helpers import make_date_ranges
+
+logger = logging.getLogger(__name__)
 
 from .settings import (
     DEFAULT_START_DATE,
@@ -354,7 +359,9 @@ def zendesk_support(
             TDataItem: Dictionary containing comment data with ticket_id added.
         """
         state = dlt.current.resource_state()
-        last_timestamp = state.setdefault("last_timestamp", start_date_ts)
+        # Force full backfill from start_date (year 2000)
+        state["last_timestamp"] = min(state.get("last_timestamp", start_date_ts), start_date_ts)
+        last_timestamp = state["last_timestamp"]
 
         ticket_pages = zendesk_client.get_pages(
             "/api/v2/incremental/tickets",
@@ -363,21 +370,37 @@ def zendesk_support(
             params={"start_time": last_timestamp},
         )
         max_timestamp = last_timestamp
+        ticket_count = 0
+        comment_count = 0
         for page in ticket_pages:
             for ticket in page:
+                # Skip deleted tickets — they appear in the export but have no comments endpoint
+                if ticket.get("status") == "deleted":
+                    continue
                 ticket_id = ticket["id"]
+                ticket_count += 1
                 ts = ticket.get("generated_timestamp", last_timestamp)
                 if ts > max_timestamp:
                     max_timestamp = ts
-                comment_pages = zendesk_client.get_pages(
-                    f"/api/v2/tickets/{ticket_id}/comments.json",
-                    "comments",
-                    PaginationType.OFFSET,
-                )
-                for comment_page in comment_pages:
-                    for comment in comment_page:
-                        comment["ticket_id"] = ticket_id
-                        yield comment
+                try:
+                    comment_pages = zendesk_client.get_pages(
+                        f"/api/v2/tickets/{ticket_id}/comments.json",
+                        "comments",
+                        PaginationType.OFFSET,
+                    )
+                    for comment_page in comment_pages:
+                        for comment in comment_page:
+                            comment["ticket_id"] = ticket_id
+                            comment_count += 1
+                            yield comment
+                except HTTPError as e:
+                    if e.response is not None and e.response.status_code in (404, 403):
+                        logger.warning("Skipping ticket %s: %s", ticket_id, e)
+                    else:
+                        raise
+                if ticket_count % 100 == 0:
+                    logger.info("Processed %d tickets, %d comments so far", ticket_count, comment_count)
+        logger.info("Finished: %d tickets, %d comments total", ticket_count, comment_count)
         state["last_timestamp"] = max_timestamp
 
     @dlt.resource(
