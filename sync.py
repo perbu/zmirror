@@ -30,14 +30,15 @@ def main():
     )
 
     source = zendesk_support(load_all=False)
-    tickets = source.with_resources("tickets")
-    tickets.resources["tickets"].add_map(strip_null_bytes)
+    data = source.with_resources("tickets", "ticket_comments")
+    data.resources["tickets"].add_map(strip_null_bytes)
+    data.resources["ticket_comments"].add_map(strip_null_bytes)
     # Force complex columns to text to avoid ADBC jsonb binary format issues
-    tickets.resources["tickets"].apply_hints(
+    data.resources["tickets"].apply_hints(
         columns={"tags": {"data_type": "text"}}
     )
 
-    info = pipeline.run(tickets, write_disposition="merge", loader_file_format="parquet")
+    info = pipeline.run(data, write_disposition="merge", loader_file_format="parquet")
     print(info)
 
 

@@ -86,6 +86,38 @@ Same structure as `tickets__collaborator_ids`. Contains user IDs of email CC rec
 
 Same structure as `tickets__collaborator_ids`. Contains ticket IDs of follow-up tickets.
 
+## ticket_comments
+
+One row per comment per ticket. Comments are immutable in Zendesk (no edits/deletes).
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | bigint | Zendesk comment ID (primary key for merges) |
+| `ticket_id` | bigint | Ticket this comment belongs to |
+| `author_id` | bigint | User ID of the comment author |
+| `body` | varchar | Plain text comment body |
+| `html_body` | varchar | HTML formatted comment body |
+| `plain_body` | varchar | Plain text body (stripped of markup) |
+| `public` | boolean | Whether the comment is public (vs internal note) |
+| `type` | varchar | `Comment` or `VoiceComment` |
+| `audit_id` | bigint | Associated audit ID |
+| `created_at` | timestamptz | When the comment was created |
+| `via__channel` | varchar | Channel the comment came through |
+| `via__source__from` | json | Source origin details |
+| `via__source__to` | json | Source destination details |
+| `via__source__rel` | varchar | Source relationship |
+| `_dlt_load_id` | varchar | dlt load identifier |
+| `_dlt_id` | varchar | dlt row identifier (unique) |
+
+Example query — get all comments for a ticket:
+
+```sql
+SELECT c.id, c.author_id, c.body, c.public, c.created_at
+FROM zendesk.ticket_comments c
+WHERE c.ticket_id = 12345
+ORDER BY c.created_at;
+```
+
 ## Joining child tables
 
 All child tables join to `tickets` via `_dlt_root_id`:
